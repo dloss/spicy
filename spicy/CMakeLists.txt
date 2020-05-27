@@ -181,6 +181,10 @@ add_executable(spicy-driver bin/spicy-driver.cc)
 target_compile_options(spicy-driver PRIVATE "-Wall")
 target_link_libraries(spicy-driver PRIVATE spicy)
 
+add_executable(spicy-dump bin/spicy-dump.cc)
+target_compile_options(spicy-dump PRIVATE "-Wall")
+target_link_libraries(spicy-dump PRIVATE spicy)
+
 add_executable(spicy-doc bin/spicy-doc.cc)
 target_compile_options(spicy-doc PRIVATE "-Wall")
 target_link_libraries(spicy-doc PRIVATE spicy)
