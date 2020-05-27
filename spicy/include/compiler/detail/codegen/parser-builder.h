@@ -173,6 +173,14 @@ public:
     Expression parseMethodExternalOverload2(const type::Unit& t);
 
     /**
+     * Returns an expression referencing the 3nd version of publically
+     * visible method that implements a unit's parsing logic, to be called
+     * from a host application. This version returns just a generic parse
+     * object plus the data remaining after parsing the unit.
+     */
+    Expression parseMethodExternalOverload3(const type::Unit& t);
+
+    /**
      * Adds a unit's external parsing methods to the HILTI struct
      * corresponding to the parse object. Returns the modified type.
      */
