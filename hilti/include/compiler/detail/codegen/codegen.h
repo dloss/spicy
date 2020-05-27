@@ -30,7 +30,16 @@ struct CxxTypes {
     std::optional<cxx::Type> param_inout;
     std::optional<cxx::Type> ctor;
     std::optional<cxx::Expression> default_;
+    std::optional<cxx::Expression> type_info;
 };
+
+struct CxxTypeInfo {
+    bool predefined;
+    cxx::Expression reference;
+    std::optional<cxx::declaration::Constant> forward;
+    std::optional<cxx::declaration::Constant> declaration;
+};
+
 } // namespace codegen
 
 /**
@@ -42,7 +51,8 @@ public:
     CodeGen(std::shared_ptr<Context> context) : _context(std::move(context)) {}
 
     /** Entry point for code generation. */
-    Result<cxx::Unit> compileModule(Node& root, hilti::Unit* hilti_unit); // NOLINT(google-runtime-references)
+    Result<cxx::Unit> compileModule(Node& root, hilti::Unit* hilti_unit,
+                                    bool include_implementation); // NOLINT(google-runtime-references)
 
     /** Entry point for generating additional cross-unit C++ code through HILTI's linker. */
     Result<cxx::Unit> linkUnits(const std::vector<cxx::linker::MetaData>& mds);
@@ -65,6 +75,10 @@ public:
     std::vector<cxx::Expression> compileCallArguments(const std::vector<Expression>& args,
                                                       const std::vector<declaration::Parameter>& params);
     std::optional<cxx::Expression> typeDefaultValue(const hilti::Type& t);
+
+    cxx::Expression typeInfo(const hilti::Type& t);
+    void addTypeInfoDefinition(const hilti::Type& t);
+
     cxx::Expression coerce(const cxx::Expression& e, const Type& src, const Type& dst); // only for supported coercions
     cxx::Expression unpack(const hilti::Type& t, const Expression& data, const std::vector<Expression>& args);
     cxx::Expression unpack(const hilti::Type& t, const cxx::Expression& data, const std::vector<cxx::Expression>& args);
@@ -92,6 +106,8 @@ public:
     hilti::Unit* hiltiUnit() const; // will abort if not compiling a module.
 
 private:
+    const codegen::CxxTypeInfo& _getOrCreateTypeInfo(const hilti::Type& t, bool add_implementation);
+
     std::unique_ptr<cxx::Unit> _cxx_unit;
     hilti::Unit* _hilti_unit = nullptr;
     std::shared_ptr<Context> _context;
@@ -101,6 +117,7 @@ private:
     std::map<std::string, int> _tmp_counters;
     std::vector<hilti::Type> _need_decls;
     hilti::util::Cache<cxx::ID, codegen::CxxTypes> _cache_types_storage;
+    hilti::util::Cache<cxx::ID, codegen::CxxTypeInfo> _cache_type_info;
     hilti::util::Cache<cxx::ID, cxx::declaration::Type> _cache_types_declarations;
     int _prioritize_types = 0;
 };

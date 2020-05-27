@@ -321,7 +321,7 @@ Result<Nothing> Unit::codegen() {
     logging::DebugPushIndent _(logging::debug::Compiler);
 
     // Compile to C++.
-    auto c = detail::CodeGen(_context).compileModule(module, this);
+    auto c = detail::CodeGen(_context).compileModule(module, this, true);
 
     if ( logger().errors() )
         return result::Error("errors encountered during code generation");
@@ -332,15 +332,12 @@ Result<Nothing> Unit::codegen() {
 
     // Now compile the other modules to because we may need some of their
     // declarations.
-    //
-    // TODO(robin): Would be nice if we had a "cheap" compilation mode
-    // that only generated declarations.
     for ( auto& [id, module] : _currentModules() ) {
         if ( id == _id )
             continue;
 
         HILTI_DEBUG(logging::debug::Compiler, fmt("importing declarations from module %s", id));
-        auto other = detail::CodeGen(_context).compileModule(*module, this);
+        auto other = detail::CodeGen(_context).compileModule(*module, this, false);
         c->importDeclarations(*other);
     }
 
