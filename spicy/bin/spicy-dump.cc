@@ -220,62 +220,66 @@ hilti::rt::Result<spicy::rt::ParsedUnit> processInput(const spicy::rt::Parser& p
     return std::move(unit);
 }
 
+// Helpers from https://www.bfilipek.com/2019/02/2lines3featuresoverload.html
+template<class... Ts>
+struct overload : Ts... {
+    using Ts::operator()...;
+};
+
+template<class... Ts>
+overload(Ts...) -> overload<Ts...>;
+
 /** Print ASCII representation of parsed unit. */
-struct AsciiPrinter {
-    void print(const void* ptr, const hilti::rt::TypeInfo* ti) { Visitor(*this, ptr, ti); }
+class AsciiPrinter {
+public:
+    AsciiPrinter(std::ostream& out) : _out(out) {}
 
-    int level = 0;
+    void print(const void* ptr, const hilti::rt::TypeInfo* ti) {
+        std::visit(overload{[&](const hilti::rt::type_info::Bytes& x) { _out << x.get(ptr); },
 
-    struct Visitor {
-        // TODO: Would be nicer to have the visitors at the top-level, but
-        // would there be a way then to make the current `ptr`/`ti`
-        // available to them? (Short of keeping them in member variables
-        // updated each time).
-        Visitor(AsciiPrinter& printer, const void* ptr, const hilti::rt::TypeInfo* ti)
-            : printer(printer), ptr(ptr), ti(ti) {
-            std::visit(*this, ti->type);
-        }
+                            [&](const hilti::rt::type_info::SignedInteger<int8_t>& x) {
+                                _out << static_cast<int16_t>(x.get(ptr));
+                            },
+                            [&](const hilti::rt::type_info::SignedInteger<int16_t>& x) { _out << x.get(ptr); },
+                            [&](const hilti::rt::type_info::SignedInteger<int32_t>& x) { _out << x.get(ptr); },
+                            [&](const hilti::rt::type_info::SignedInteger<int64_t>& x) { _out << x.get(ptr); },
+                            [&](const hilti::rt::type_info::String& x) {},
+                            [&](const hilti::rt::type_info::ValueReference& x) {
+                                auto e = x.element(ptr);
+                                print(e.first, e.second);
+                            },
+                            [&](const hilti::rt::type_info::UnsignedInteger<uint8_t>& x) {
+                                _out << static_cast<uint16_t>(x.get(ptr));
+                            },
+                            [&](const hilti::rt::type_info::UnsignedInteger<uint16_t>& x) { _out << x.get(ptr); },
+                            [&](const hilti::rt::type_info::UnsignedInteger<uint32_t>& x) { _out << x.get(ptr); },
+                            [&](const hilti::rt::type_info::UnsignedInteger<uint64_t>& x) { _out << x.get(ptr); },
 
-        AsciiPrinter& printer;
-        const void* ptr;
-        const hilti::rt::TypeInfo* ti;
+                            [&](const hilti::rt::type_info::Struct& x) {
+                                _out << ti->display << '\n';
 
-        std::string indent() { return std::string(printer.level * 2, ' '); }
-        void print(const void* ptr, const hilti::rt::TypeInfo* ti) { Visitor(printer, ptr, ti); }
+                                pushIndent([&]() {
+                                    for ( const auto& f : x.fields() ) {
+                                        _out << indent() << f.name << " = ";
+                                        print(static_cast<const char*>(ptr) + f.offset, f.type);
+                                        _out << std::endl;
+                                    }
+                                });
+                            }},
+                   ti->type);
+    }
 
-        void operator()(const hilti::rt::type_info::Bytes& x) { std::cout << x.get(ptr); }
+private:
+    void pushIndent(const std::function<void()>& func) {
+        ++_level;
+        func();
+        --_level;
+    }
 
-        void operator()(const hilti::rt::type_info::SignedInteger<int8_t>& x) {
-            std::cout << static_cast<int16_t>(x.get(ptr));
-        }
-        void operator()(const hilti::rt::type_info::SignedInteger<int16_t>& x) { std::cout << x.get(ptr); }
-        void operator()(const hilti::rt::type_info::SignedInteger<int32_t>& x) { std::cout << x.get(ptr); }
-        void operator()(const hilti::rt::type_info::SignedInteger<int64_t>& x) { std::cout << x.get(ptr); }
-        void operator()(const hilti::rt::type_info::String& x) {}
-        void operator()(const hilti::rt::type_info::ValueReference& x) {
-            auto e = x.element(ptr);
-            print(e.first, e.second);
-        }
-        void operator()(const hilti::rt::type_info::UnsignedInteger<uint8_t>& x) {
-            std::cout << static_cast<uint16_t>(x.get(ptr));
-        }
-        void operator()(const hilti::rt::type_info::UnsignedInteger<uint16_t>& x) { std::cout << x.get(ptr); }
-        void operator()(const hilti::rt::type_info::UnsignedInteger<uint32_t>& x) { std::cout << x.get(ptr); }
-        void operator()(const hilti::rt::type_info::UnsignedInteger<uint64_t>& x) { std::cout << x.get(ptr); }
+    std::string indent() { return std::string(_level * 2, ' '); }
 
-        void operator()(const hilti::rt::type_info::Struct& x) {
-            std::cout << ti->display << '\n';
-            ++printer.level;
-
-            for ( const auto& f : x.fields() ) {
-                std::cout << indent() << f.name << " = ";
-                print(static_cast<const char*>(ptr) + f.offset, f.type);
-                std::cout << std::endl;
-            }
-
-            --printer.level;
-        }
-    };
+    int _level = 0;
+    std::ostream& _out;
 };
 
 int main(int argc, char** argv) {
@@ -317,7 +321,7 @@ int main(int argc, char** argv) {
 
             driver.finishRuntime();
 
-            AsciiPrinter().print(unit->pointer(), unit->typeinfo());
+            AsciiPrinter(std::cout).print(unit->pointer(), unit->typeinfo());
         }
 
     } catch ( const std::exception& e ) {
