@@ -736,11 +736,25 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
     VisitorTypeInfoDynamic(CodeGen* cg) : cg(cg) {}
     CodeGen* cg;
 
+    result_t operator()(const type::Computed& n) {
+        if ( auto x = dispatch(n.type()) )
+            return *x;
+        else
+            return {};
+    }
+
     result_t operator()(const type::Enum& n) { return "XXX-enum-XXX"; }
 
     result_t operator()(const type::Exception& n) { return "XXX-exception-XXX"; }
 
     result_t operator()(const type::Library& n) { return "XXX-library-XXX"; }
+
+    result_t operator()(const type::ResolvedID& n) {
+        if ( auto x = dispatch(n.type()) )
+            return *x;
+        else
+            return {};
+    }
 
     result_t operator()(const type::Struct& n) {
         std::vector<std::string> fields;
@@ -750,11 +764,11 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
                 continue;
 
             if ( ! f.isInternal() )
-                fields.push_back(fmt("hilti::rt::type_info::Field{ \"%s\", %s, offsetof(%s, %s) }", f.id(),
+                fields.push_back(fmt("hilti::rt::type_info::struct_::Field{ \"%s\", %s, offsetof(%s, %s) }", f.id(),
                                      cg->typeInfo(f.type()), *n.typeID(), f.id()));
         }
 
-        return fmt("hilti::rt::type_info::Struct(std::vector<hilti::rt::type_info::Field>({%s}))",
+        return fmt("hilti::rt::type_info::Struct(std::vector<hilti::rt::type_info::struct_::Field>({%s}))",
                    util::join(fields, ", "));
     }
 
@@ -762,25 +776,18 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
         auto t = cg->compile(n.dereferencedType(), codegen::TypeUsage::Storage);
         auto ti = cg->typeInfo(n.dereferencedType());
 
-        return fmt("hilti::rt::type_info::ValueReferenceFor<%s>(%s)", t, ti);
+        return fmt("hilti::rt::type_info::ValueReference(%s, hilti::rt::type_info::ValueReference::accessor<%s>())", ti,
+                   t);
     }
 
-    result_t operator()(const type::ResolvedID& n) {
-        if ( auto x = dispatch(n.type()) )
-            return *x;
-        else
-            return {};
+    result_t operator()(const type::Vector& n) {
+        auto t = cg->compile(n.elementType(), codegen::TypeUsage::Storage);
+        auto ti = cg->typeInfo(n.elementType());
+        return fmt("hilti::rt::type_info::Vector(%s, hilti::rt::type_info::Vector::accessor<%s>())", ti, t);
     }
 
     result_t operator()(const type::UnresolvedID& n) {
         logger().internalError(fmt("codegen: unresolved type ID %s", n.id()), n);
-    }
-
-    result_t operator()(const type::Computed& n) {
-        if ( auto x = dispatch(n.type()) )
-            return *x;
-        else
-            return {};
     }
 };
 

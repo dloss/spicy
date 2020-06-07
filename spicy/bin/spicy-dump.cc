@@ -234,49 +234,68 @@ class AsciiPrinter {
 public:
     AsciiPrinter(std::ostream& out) : _out(out) {}
 
-    void print(const void* ptr, const hilti::rt::TypeInfo* ti) {
-        std::visit(overload{[&](const hilti::rt::type_info::Bytes& x) { _out << x.get(ptr); },
+    void print(const hilti::rt::type_info::Value& v) {
+        std::visit(overload{[&](const hilti::rt::type_info::Bytes& x) { _out << x.get(v); },
 
                             [&](const hilti::rt::type_info::SignedInteger<int8_t>& x) {
-                                _out << static_cast<int16_t>(x.get(ptr));
+                                _out << static_cast<int16_t>(x.get(v));
                             },
-                            [&](const hilti::rt::type_info::SignedInteger<int16_t>& x) { _out << x.get(ptr); },
-                            [&](const hilti::rt::type_info::SignedInteger<int32_t>& x) { _out << x.get(ptr); },
-                            [&](const hilti::rt::type_info::SignedInteger<int64_t>& x) { _out << x.get(ptr); },
+                            [&](const hilti::rt::type_info::SignedInteger<int16_t>& x) { _out << x.get(v); },
+                            [&](const hilti::rt::type_info::SignedInteger<int32_t>& x) { _out << x.get(v); },
+                            [&](const hilti::rt::type_info::SignedInteger<int64_t>& x) { _out << x.get(v); },
                             [&](const hilti::rt::type_info::String& x) {},
-                            [&](const hilti::rt::type_info::ValueReference& x) {
-                                auto e = x.element(ptr);
-                                print(e.first, e.second);
-                            },
+                            [&](const hilti::rt::type_info::ValueReference& x) { print(x.element(v)); },
                             [&](const hilti::rt::type_info::UnsignedInteger<uint8_t>& x) {
-                                _out << static_cast<uint16_t>(x.get(ptr));
+                                _out << static_cast<uint16_t>(x.get(v));
                             },
-                            [&](const hilti::rt::type_info::UnsignedInteger<uint16_t>& x) { _out << x.get(ptr); },
-                            [&](const hilti::rt::type_info::UnsignedInteger<uint32_t>& x) { _out << x.get(ptr); },
-                            [&](const hilti::rt::type_info::UnsignedInteger<uint64_t>& x) { _out << x.get(ptr); },
+                            [&](const hilti::rt::type_info::UnsignedInteger<uint16_t>& x) { _out << x.get(v); },
+                            [&](const hilti::rt::type_info::UnsignedInteger<uint32_t>& x) { _out << x.get(v); },
+                            [&](const hilti::rt::type_info::UnsignedInteger<uint64_t>& x) { _out << x.get(v); },
 
                             [&](const hilti::rt::type_info::Struct& x) {
-                                _out << ti->display << '\n';
+                                _out << v.type().display << '\n';
 
-                                pushIndent([&]() {
-                                    for ( const auto& f : x.fields() ) {
-                                        _out << indent() << f.name << " = ";
-                                        print(static_cast<const char*>(ptr) + f.offset, f.type);
+                                indent([&]() {
+                                    for ( const auto& [f, v] : x.iterate(v) ) {
+                                        insertIndent();
+                                        _out << f.name << " = ";
+                                        print(v);
                                         _out << std::endl;
                                     }
                                 });
+                            },
+
+                            [&](const hilti::rt::type_info::Vector& x) {
+                                _out << '[';
+
+                                bool first = true;
+                                for ( auto i : x.iterate(v) ) {
+                                    if ( ! first )
+                                        _out << ", ";
+
+                                    print(i);
+                                    first = false;
+                                };
+
+                                _out << ']';
+                            },
+
+                            [&](const auto& x) {
+                                std::cerr << util::fmt("internal error: type %s not handled by ASCII writer",
+                                                       v.type().display)
+                                          << std::endl;
                             }},
-                   ti->type);
+                   v.type().type);
     }
 
 private:
-    void pushIndent(const std::function<void()>& func) {
+    void indent(const std::function<void()>& func) {
         ++_level;
         func();
         --_level;
     }
 
-    std::string indent() { return std::string(_level * 2, ' '); }
+    void insertIndent() { _out << std::string(_level * 2, ' '); }
 
     int _level = 0;
     std::ostream& _out;
@@ -321,7 +340,7 @@ int main(int argc, char** argv) {
 
             driver.finishRuntime();
 
-            AsciiPrinter(std::cout).print(unit->pointer(), unit->typeinfo());
+            AsciiPrinter(std::cout).print(unit->value());
         }
 
     } catch ( const std::exception& e ) {

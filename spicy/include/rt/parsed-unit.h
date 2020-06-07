@@ -25,17 +25,7 @@ public:
             throw hilti::rt::NullReference("parsed unit not set");
     }
 
-    /**
-     * Returns a raw pointer to the contained instance, or null if not
-     * initialized.
-     */
-    const void* pointer() const { return _ptr; }
-
-    /**
-     * Returns the type information for the contained instance, or null of
-     * not initialized.
-     */
-    const hilti::rt::TypeInfo* typeinfo() const { return _ti; }
+    hilti::rt::type_info::Value value() const { return {_ptr, _ti}; }
 
     /** Releases any contained instance. */
     void reset() {
