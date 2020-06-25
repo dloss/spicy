@@ -1,9 +1,10 @@
-// Copyright (c) 2020 by the Zeek Project. See LICENSE for details.
+/// Copyright (c) 2020 by the Zeek Project. See LICENSE for details.
 
 #include <hilti/ast/detail/visitor.h>
 #include <hilti/ast/module.h>
 #include <hilti/ast/types/all.h>
 #include <hilti/base/logger.h>
+#include <hilti/base/util.h>
 #include <hilti/compiler/detail/codegen/codegen.h>
 #include <hilti/compiler/detail/cxx/all.h>
 #include <hilti/compiler/unit.h>
@@ -372,12 +373,12 @@ struct VisitorStorage : hilti::visitor::PreOrder<CxxTypes, VisitorStorage> {
 
     result_t operator()(const type::Exception& n, const position_t p) {
         if ( auto cxx = n.cxxID() )
-            return CxxTypes{.base_type = cxx::Type(*cxx), .default_ = cxx::Expression(cxx::ID(*cxx, "Undef"))};
+            return CxxTypes{.base_type = cxx::Type(*cxx)};
 
         cg->addDeclarationFor(n);
 
         auto sid = cxx::ID{(n.typeID() ? std::string(*n.typeID()) : fmt("exception_%p", &n))};
-        return CxxTypes{.base_type = std::string(sid), .default_ = cxx::Expression(cxx::ID(sid, "Undef"))};
+        return CxxTypes{.base_type = std::string(sid), .storage = "hilti::rt::Exception"};
     }
 
     result_t operator()(const type::Function& n) { return CxxTypes{}; }
@@ -697,21 +698,26 @@ struct VisitorTypeInfoPredefined : hilti::visitor::PreOrder<cxx::Expression, Vis
 
     CodeGen* cg;
 
+    result_t operator()(const type::Address& n) { return "hilti::rt::type_info::address"; }
+    result_t operator()(const type::Any& n) { return "hilti::rt::type_info::any"; }
+    result_t operator()(const type::Bool& n) { return "hilti::rt::type_info::bool_"; }
+    result_t operator()(const type::Bytes& n) { return "hilti::rt::type_info::bytes"; }
+    result_t operator()(const type::bytes::Iterator& n) { return "hilti::rt::type_info::bytes_iterator"; }
+    result_t operator()(const type::Error& n) { return "hilti::rt::type_info::error"; }
+    result_t operator()(const type::Exception& n) { return "hilti::rt::type_info::exception"; }
+    result_t operator()(const type::Interval& n) { return "hilti::rt::type_info::interval"; }
+    result_t operator()(const type::Network& n) { return "hilti::rt::type_info::network"; }
+    result_t operator()(const type::Port& n) { return "hilti::rt::type_info::port"; }
+    result_t operator()(const type::Real& n) { return "hilti::rt::type_info::real"; }
+    result_t operator()(const type::RegExp& n) { return "hilti::rt::type_info::regexp"; }
     result_t operator()(const type::SignedInteger& n) { return fmt("hilti::rt::type_info::int%d", n.width()); }
-
-    result_t operator()(const type::Stream& n) { return {}; /* TODO */ }
+    result_t operator()(const type::Stream& n) { return "hilti::rt::type_info::stream"; }
+    result_t operator()(const type::stream::Iterator& n) { return "hilti::rt::type_info::stream_iterator"; }
+    result_t operator()(const type::stream::View& n) { return "hilti::rt::type_info::stream_view"; }
     result_t operator()(const type::String& n) { return "hilti::rt::type_info::string"; }
-    result_t operator()(const type::Time& n) { return {}; /* TODO */ }
-
+    result_t operator()(const type::Time& n) { return "hilti::rt::type_info::time"; }
     result_t operator()(const type::UnsignedInteger& n) { return fmt("hilti::rt::type_info::uint%d", n.width()); }
-
-    result_t operator()(const type::bytes::Iterator& n) { return {}; /* TODO */ }
-    result_t operator()(const type::list::Iterator& n) { return {}; /* TODO */ }
-    result_t operator()(const type::map::Iterator& n) { return {}; /* TODO */ }
-    result_t operator()(const type::set::Iterator& n) { return {}; /* TODO */ }
-    result_t operator()(const type::stream::Iterator& n) { return {}; /* TODO */ }
-    result_t operator()(const type::stream::View& n) { return {}; /* TODO */ }
-    result_t operator()(const type::vector::Iterator& n) { return {}; /* TODO */ }
+    result_t operator()(const type::Void& n) { return "hilti::rt::type_info::void_"; }
 
     result_t operator()(const type::ResolvedID& n) {
         if ( auto x = dispatch(n.type()) )
@@ -736,24 +742,53 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
     VisitorTypeInfoDynamic(CodeGen* cg) : cg(cg) {}
     CodeGen* cg;
 
-    result_t operator()(const type::Computed& n) {
-        if ( auto x = dispatch(n.type()) )
-            return *x;
-        else
-            return {};
+    result_t operator()(const type::Enum& n) {
+        std::vector<std::string> labels;
+
+        for ( const auto& l : n.labels() )
+            labels.push_back(fmt("hilti::rt::type_info::enum_::Label{ \"%s\", %d }", l.id(), l.value()));
+
+        return fmt("hilti::rt::type_info::Enum(std::vector<hilti::rt::type_info::enum_::Label>({%s}))",
+                   util::join(labels, ", "));
     }
 
-    result_t operator()(const type::Enum& n) { return "XXX-enum-XXX"; }
+    result_t operator()(const type::Exception& n) { return "hilti::rt::type_info::Exception"; }
 
-    result_t operator()(const type::Exception& n) { return "XXX-exception-XXX"; }
+    result_t operator()(const type::Function& n) { return "hilti::rt::type_info::Function()"; }
 
-    result_t operator()(const type::Library& n) { return "XXX-library-XXX"; }
+    result_t operator()(const type::Library& n) { return "hilti::rt::type_info::Library()"; }
 
-    result_t operator()(const type::ResolvedID& n) {
-        if ( auto x = dispatch(n.type()) )
-            return *x;
-        else
-            return {};
+    result_t operator()(const type::Map& n) {
+        auto ktype = cg->compile(n.keyType(), codegen::TypeUsage::Storage);
+        auto vtype = cg->compile(n.elementType(), codegen::TypeUsage::Storage);
+        auto deref_type = type::Tuple({n.keyType(), n.elementType()});
+        return fmt("hilti::rt::type_info::Map(%s, hilti::rt::type_info::Map::accessor<%s, %s>())",
+                   cg->typeInfo(deref_type), ktype, vtype);
+    }
+
+    result_t operator()(const type::map::Iterator& n) {
+        return fmt("hilti::rt::type_info::MapIterator(%s, hilti::rt::type_info::MapIterator::accessor<%s>())",
+                   cg->typeInfo(n.dereferencedType()), cg->compile(n.dereferencedType(), codegen::TypeUsage::Storage));
+    }
+
+    result_t operator()(const type::Optional& n) {
+        return fmt("hilti::rt::type_info::Optional(%s, hilti::rt::type_info::Optional::accessor<%s>())",
+                   cg->typeInfo(n.dereferencedType()), cg->compile(n.dereferencedType(), codegen::TypeUsage::Storage));
+    }
+
+    result_t operator()(const type::Result& n) {
+        return fmt("hilti::rt::type_info::Result(%s, hilti::rt::type_info::Result::accessor<%s>())",
+                   cg->typeInfo(n.dereferencedType()), cg->compile(n.dereferencedType(), codegen::TypeUsage::Storage));
+    }
+
+    result_t operator()(const type::Set& n) {
+        return fmt("hilti::rt::type_info::Set(%s, hilti::rt::type_info::Set::accessor<%s>())",
+                   cg->typeInfo(n.elementType()), cg->compile(n.elementType(), codegen::TypeUsage::Storage));
+    }
+
+    result_t operator()(const type::set::Iterator& n) {
+        return fmt("hilti::rt::type_info::SetIterator(%s, hilti::rt::type_info::SetIterator::accessor<%s>())",
+                   cg->typeInfo(n.dereferencedType()), cg->compile(n.dereferencedType(), codegen::TypeUsage::Storage));
     }
 
     result_t operator()(const type::Struct& n) {
@@ -772,18 +807,79 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
                    util::join(fields, ", "));
     }
 
-    result_t operator()(const type::ValueReference& n) {
-        auto t = cg->compile(n.dereferencedType(), codegen::TypeUsage::Storage);
-        auto ti = cg->typeInfo(n.dereferencedType());
+    result_t operator()(const type::Tuple& n) {
+        std::vector<std::string> elems;
+        auto ttype = cg->compile(n, codegen::TypeUsage::Storage);
 
-        return fmt("hilti::rt::type_info::ValueReference(%s, hilti::rt::type_info::ValueReference::accessor<%s>())", ti,
-                   t);
+        for ( const auto& [i, e] : util::enumerate(n.elements()) )
+            elems.push_back(
+                fmt("hilti::rt::type_info::tuple::Element{ \"%s\", %s, hilti::rt::tuple::elementOffset<%s, %d>() }",
+                    e.first, cg->typeInfo(e.second), ttype, i));
+
+        return fmt("hilti::rt::type_info::Tuple(std::vector<hilti::rt::type_info::tuple::Element>({%s}))",
+                   util::join(elems, ", "));
+    }
+
+    result_t operator()(const type::Union& n) {
+        std::vector<std::string> fields;
+
+        for ( const auto& f : n.fields() )
+            fields.push_back(fmt("hilti::rt::type_info::union_::Field{ \"%s\", %s }", f.id(), cg->typeInfo(f.type())));
+
+        return fmt(
+            "hilti::rt::type_info::Union(std::vector<hilti::rt::type_info::union_::Field>({%s}), "
+            "hilti::rt::type_info::Union::accessor<%s>())",
+            util::join(fields, ", "), cg->compile(n, codegen::TypeUsage::Storage));
+    }
+    result_t operator()(const type::StrongReference& n) {
+        return fmt("hilti::rt::type_info::StrongReference(%s, hilti::rt::type_info::StrongReference::accessor<%s>())",
+                   cg->typeInfo(n.dereferencedType()), cg->compile(n.dereferencedType(), codegen::TypeUsage::Storage));
+    }
+
+    result_t operator()(const type::ValueReference& n) {
+        return fmt("hilti::rt::type_info::ValueReference(%s, hilti::rt::type_info::ValueReference::accessor<%s>())",
+                   cg->typeInfo(n.dereferencedType()), cg->compile(n.dereferencedType(), codegen::TypeUsage::Storage));
+    }
+
+    result_t operator()(const type::WeakReference& n) {
+        return fmt("hilti::rt::type_info::WeakReference(%s, hilti::rt::type_info::WeakReference::accessor<%s>())",
+                   cg->typeInfo(n.dereferencedType()), cg->compile(n.dereferencedType(), codegen::TypeUsage::Storage));
     }
 
     result_t operator()(const type::Vector& n) {
-        auto t = cg->compile(n.elementType(), codegen::TypeUsage::Storage);
-        auto ti = cg->typeInfo(n.elementType());
-        return fmt("hilti::rt::type_info::Vector(%s, hilti::rt::type_info::Vector::accessor<%s>())", ti, t);
+        auto x = cg->compile(n.elementType(), codegen::TypeUsage::Storage);
+
+        std::string allocator;
+        if ( auto def = cg->typeDefaultValue(n.elementType()) )
+            allocator = fmt(", hilti::rt::vector::Allocator<%s, %s>", x, *def);
+
+        return fmt("hilti::rt::type_info::Vector(%s, hilti::rt::type_info::Vector::accessor<%s%s>())",
+                   cg->typeInfo(n.elementType()), x, allocator);
+    }
+
+    result_t operator()(const type::vector::Iterator& n) {
+        auto x = cg->compile(n.dereferencedType(), codegen::TypeUsage::Storage);
+
+        std::string allocator;
+        if ( auto def = cg->typeDefaultValue(n.dereferencedType()) )
+            allocator = fmt(", hilti::rt::vector::Allocator<%s, %s>", x, *def);
+
+        return fmt("hilti::rt::type_info::VectorIterator(%s, hilti::rt::type_info::VectorIterator::accessor<%s%s>())",
+                   cg->typeInfo(n.dereferencedType()), x, allocator);
+    }
+
+    result_t operator()(const type::Computed& n) {
+        if ( auto x = dispatch(n.type()) )
+            return *x;
+        else
+            return {};
+    }
+
+    result_t operator()(const type::ResolvedID& n) {
+        if ( auto x = dispatch(n.type()) )
+            return *x;
+        else
+            return {};
     }
 
     result_t operator()(const type::UnresolvedID& n) {

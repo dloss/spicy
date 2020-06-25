@@ -53,7 +53,7 @@ private:
 };
 
 void SpicyDump::usage() {
-    auto exts = util::join(hilti::plugin::registry().supportedExtensions(), ", ");
+    auto exts = hilti::util::join(hilti::plugin::registry().supportedExtensions(), ", ");
 
     std::cerr
         << "Usage: cat <data> | spicy-dump [options] <inputs> ...\n"
@@ -152,7 +152,7 @@ void SpicyDump::parseOptions(int argc, char** argv) {
                     exit(0);
                 }
 
-                for ( const auto& s : util::split(arg, ",") ) {
+                for ( const auto& s : hilti::util::split(arg, ",") ) {
                     if ( ! driver_options.logger->debugEnable(s) )
                         fatalError(fmt("unknown debug stream '%s', use 'help' for list", arg));
                 }
@@ -244,7 +244,7 @@ public:
                             [&](const hilti::rt::type_info::SignedInteger<int32_t>& x) { _out << x.get(v); },
                             [&](const hilti::rt::type_info::SignedInteger<int64_t>& x) { _out << x.get(v); },
                             [&](const hilti::rt::type_info::String& x) {},
-                            [&](const hilti::rt::type_info::ValueReference& x) { print(x.element(v)); },
+                            [&](const hilti::rt::type_info::ValueReference& x) { print(x.value(v)); },
                             [&](const hilti::rt::type_info::UnsignedInteger<uint8_t>& x) {
                                 _out << static_cast<uint16_t>(x.get(v));
                             },
@@ -281,7 +281,7 @@ public:
                             },
 
                             [&](const auto& x) {
-                                std::cerr << util::fmt("internal error: type %s not handled by ASCII writer",
+                                std::cerr << hilti::util::fmt("internal error: type %s not handled by ASCII writer",
                                                        v.type().display)
                                           << std::endl;
                             }},
@@ -344,14 +344,14 @@ int main(int argc, char** argv) {
         }
 
     } catch ( const std::exception& e ) {
-        std::cerr << util::fmt("[fatal error] terminating with uncaught exception of type %s: %s",
-                               util::demangle(typeid(e).name()), e.what())
+        std::cerr << hilti::util::fmt("[fatal error] terminating with uncaught exception of type %s: %s",
+                               hilti::util::demangle(typeid(e).name()), e.what())
                   << std::endl;
         exit(1);
     }
 
     if ( driver.driverOptions().report_times )
-        util::timing::summary(std::cerr);
+        hilti::util::timing::summary(std::cerr);
 
     return 0;
 }

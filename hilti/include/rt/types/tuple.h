@@ -7,6 +7,17 @@
 
 namespace hilti::rt {
 
+namespace tuple {
+
+template<typename Tuple, size_t Idx>
+ptrdiff_t elementOffset() {
+    // This is pretty certainly not well-defined ...
+    const Tuple* p = nullptr;
+    return reinterpret_cast<const char*>(&std::get<Idx>(*p)) - reinterpret_cast<const char*>(p);
+}
+
+} // namespace tuple
+
 namespace detail::adl {
 template<typename T, typename std::enable_if_t<is_tuple<T>::value>* = nullptr>
 inline std::string to_string(const T& x, adl::tag /*unused*/) {

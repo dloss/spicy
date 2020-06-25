@@ -28,7 +28,7 @@ public:
      */
     Exception(std::string_view desc, std::string_view location);
 
-    Exception() = delete;
+    Exception() : std::runtime_error("<no error>"){};
     Exception(const Exception&) = default;
     Exception(Exception&&) noexcept = default;
     Exception& operator=(const Exception&) = default;

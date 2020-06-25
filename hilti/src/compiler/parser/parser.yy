@@ -28,7 +28,7 @@ namespace hilti { namespace detail { class Parser; } }
 %verbose
 
 %glr-parser
-%expect 94
+%expect 102
 %expect-rr 180
 
 %union {}

@@ -1,0 +1,64 @@
+
+module Test {
+
+type Enum = enum { A = 1, B = 2, C = 4 };
+
+type MatchState = __library_type("::hilti::rt::regexp::MatchState");
+
+type Struct = struct {
+    string s;
+    int<64> i;
+};
+
+type Union = union {
+    string s,
+    int<64> i
+};
+
+type X = struct {
+    addr ad;
+    any an;
+    bool bo;
+    bytes by;
+    iterator<bytes> bi;
+    Enum en;
+    error er;
+    exception ex; # TODO: can't use as struct field
+    # function fu;  TODO: can't test
+    interval in_;
+    MatchState li;
+    map<int<64>, string> ma;
+    iterator<map<int<64>, string>> mai;
+    net ne;
+    optional<string> op;
+    port po;
+    real re;
+    regexp rx;
+    result<string> rs;
+    set<string> se;
+    iterator<set<string>> sei;
+    int<8> i8;
+    int<16> i16;
+    int<32> i32;
+    int<64> i64;
+    stream st;
+    iterator<stream> sti;
+    view<stream> stv;
+    string str;
+    strong_ref<Struct> sr;
+    Struct stru;
+    time ti;
+    tuple<int<32>, string, bool> tu;
+    Union un;
+    uint<8> ui8;
+    uint<16> ui16;
+    uint<32> ui32;
+    uint<64> ui64;
+    vector<string> ve;
+    iterator<vector<string>> vei;
+    value_ref<Struct> vr;
+    # void vo; TODO: can't use as struct field
+    weak_ref<Struct> wr;
+};
+
+}
