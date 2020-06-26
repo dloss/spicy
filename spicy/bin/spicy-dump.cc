@@ -235,57 +235,59 @@ public:
     AsciiPrinter(std::ostream& out) : _out(out) {}
 
     void print(const hilti::rt::type_info::Value& v) {
-        std::visit(overload{[&](const hilti::rt::type_info::Bytes& x) { _out << x.get(v); },
+        std::visit(overload{
 
-                            [&](const hilti::rt::type_info::SignedInteger<int8_t>& x) {
-                                _out << static_cast<int16_t>(x.get(v));
-                            },
-                            [&](const hilti::rt::type_info::SignedInteger<int16_t>& x) { _out << x.get(v); },
-                            [&](const hilti::rt::type_info::SignedInteger<int32_t>& x) { _out << x.get(v); },
-                            [&](const hilti::rt::type_info::SignedInteger<int64_t>& x) { _out << x.get(v); },
-                            [&](const hilti::rt::type_info::String& x) {},
-                            [&](const hilti::rt::type_info::ValueReference& x) { print(x.value(v)); },
-                            [&](const hilti::rt::type_info::UnsignedInteger<uint8_t>& x) {
-                                _out << static_cast<uint16_t>(x.get(v));
-                            },
-                            [&](const hilti::rt::type_info::UnsignedInteger<uint16_t>& x) { _out << x.get(v); },
-                            [&](const hilti::rt::type_info::UnsignedInteger<uint32_t>& x) { _out << x.get(v); },
-                            [&](const hilti::rt::type_info::UnsignedInteger<uint64_t>& x) { _out << x.get(v); },
+                       [&](const hilti::rt::type_info::Bytes& x) { _out << x.get(v); },
 
-                            [&](const hilti::rt::type_info::Struct& x) {
-                                _out << v.type().display << '\n';
+                       [&](const hilti::rt::type_info::SignedInteger<int8_t>& x) {
+                           _out << static_cast<int16_t>(x.get(v));
+                       },
+                       [&](const hilti::rt::type_info::SignedInteger<int16_t>& x) { _out << x.get(v); },
+                       [&](const hilti::rt::type_info::SignedInteger<int32_t>& x) { _out << x.get(v); },
+                       [&](const hilti::rt::type_info::SignedInteger<int64_t>& x) { _out << x.get(v); },
+                       [&](const hilti::rt::type_info::String& x) {},
+                       [&](const hilti::rt::type_info::ValueReference& x) { print(x.value(v)); },
+                       [&](const hilti::rt::type_info::UnsignedInteger<uint8_t>& x) {
+                           _out << static_cast<uint16_t>(x.get(v));
+                       },
+                       [&](const hilti::rt::type_info::UnsignedInteger<uint16_t>& x) { _out << x.get(v); },
+                       [&](const hilti::rt::type_info::UnsignedInteger<uint32_t>& x) { _out << x.get(v); },
+                       [&](const hilti::rt::type_info::UnsignedInteger<uint64_t>& x) { _out << x.get(v); },
 
-                                indent([&]() {
-                                    for ( const auto& [f, v] : x.iterate(v) ) {
-                                        insertIndent();
-                                        _out << f.name << " = ";
-                                        print(v);
-                                        _out << std::endl;
-                                    }
-                                });
-                            },
+                       [&](const hilti::rt::type_info::Struct& x) {
+                           _out << v.type().display << '\n';
 
-                            [&](const hilti::rt::type_info::Vector& x) {
-                                _out << '[';
+                           indent([&]() {
+                               for ( const auto& [f, v] : x.iterate(v) ) {
+                                   insertIndent();
+                                   _out << f.name << " = ";
+                                   print(v);
+                                   _out << std::endl;
+                               }
+                           });
+                       },
 
-                                bool first = true;
-                                for ( auto i : x.iterate(v) ) {
-                                    if ( ! first )
-                                        _out << ", ";
+                       [&](const hilti::rt::type_info::Vector& x) {
+                           _out << '[';
 
-                                    print(i);
-                                    first = false;
-                                };
+                           bool first = true;
+                           for ( auto i : x.iterate(v) ) {
+                               if ( ! first )
+                                   _out << ", ";
 
-                                _out << ']';
-                            },
+                               print(i);
+                               first = false;
+                           };
 
-                            [&](const auto& x) {
-                                std::cerr << hilti::util::fmt("internal error: type %s not handled by ASCII writer",
-                                                       v.type().display)
-                                          << std::endl;
-                            }},
-                   v.type().type);
+                           _out << ']';
+                       },
+
+                       [&](const auto& x) {
+                           std::cerr << hilti::util::fmt("internal error: type %s not handled by ASCII writer",
+                                                         v.type().display)
+                                     << std::endl;
+                       }},
+                   v.type().aux_type_info);
     }
 
 private:
@@ -345,7 +347,7 @@ int main(int argc, char** argv) {
 
     } catch ( const std::exception& e ) {
         std::cerr << hilti::util::fmt("[fatal error] terminating with uncaught exception of type %s: %s",
-                               hilti::util::demangle(typeid(e).name()), e.what())
+                                      hilti::util::demangle(typeid(e).name()), e.what())
                   << std::endl;
         exit(1);
     }

@@ -174,6 +174,8 @@ public:
      */
     regexp::MatchState tokenMatcher() const;
 
+    bool operator==(const RegExp& other) const { return /* _flags == other.flags && */ _patterns == other._patterns; }
+
 private:
     friend class regexp::MatchState;
 

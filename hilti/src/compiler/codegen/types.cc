@@ -797,9 +797,17 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
             if ( auto ft = f.type().tryAs<type::Function>() )
                 continue;
 
-            if ( ! f.isInternal() )
-                fields.push_back(fmt("hilti::rt::type_info::struct_::Field{ \"%s\", %s, offsetof(%s, %s) }", f.id(),
-                                     cg->typeInfo(f.type()), *n.typeID(), f.id()));
+            if ( f.isInternal() )
+                continue;
+
+            std::string accessor;
+
+            if ( f.isOptional() )
+                accessor = fmt(", hilti::rt::type_info::struct_::Field::accessor_optional<%s>()",
+                               cg->compile(f.type(), codegen::TypeUsage::Storage));
+
+            fields.push_back(fmt("hilti::rt::type_info::struct_::Field{ \"%s\", %s, offsetof(%s, %s)%s }", f.id(),
+                                 cg->typeInfo(f.type()), *n.typeID(), f.id(), accessor));
         }
 
         return fmt("hilti::rt::type_info::Struct(std::vector<hilti::rt::type_info::struct_::Field>({%s}))",
@@ -991,16 +999,10 @@ std::optional<cxx::declaration::Type> CodeGen::typeDeclaration(const hilti::Type
 };
 
 const CxxTypeInfo& CodeGen::_getOrCreateTypeInfo(const hilti::Type& t, bool add_implementation) {
-    cxx::ID tid;
+    std::stringstream display;
+    hilti::print(display, t);
 
-    static int count = 0; // TODO: Move into codegen
-
-    if ( t.typeID() )
-        tid = cxx::ID(_context->options().cxx_namespace_intern, t.typeID()->namespace_(),
-                      fmt("__ti_%s", t.typeID()->local()));
-    else
-        tid = cxx::ID(unit()->cxxNamespace(), fmt("__ti_%d", ++count));
-
+    cxx::ID tid(unit()->cxxNamespace(), fmt("__ti_%s", util::toIdentifier(display.str())));
 
     if ( add_implementation ) {
         if ( auto x = _cache_type_info.get(tid); x && ! x->declaration )
@@ -1030,8 +1032,6 @@ const CxxTypeInfo& CodeGen::_getOrCreateTypeInfo(const hilti::Type& t, bool add_
                 logger().internalError(fmt("codegen: type %s does not have a dynamic type info visitor", t), t);
 
             if ( ! t.typeID() || add_implementation ) {
-                std::stringstream display;
-                hilti::print(display, t);
                 auto id_init = (t.typeID() ? fmt("\"%s\"", *t.typeID()) : std::string("{}"));
                 auto init = fmt("{ %s, \"%s\", %s }", id_init, display.str(), *x);
 

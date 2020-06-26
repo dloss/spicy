@@ -2,7 +2,7 @@
 module Test {
 
 type Enum = enum { A = 1, B = 2, C = 4 };
-
+type Exception = exception;
 type MatchState = __library_type("::hilti::rt::regexp::MatchState");
 type TypeInfo = __library_type("const ::hilti::rt::TypeInfo*");
 
@@ -16,9 +16,7 @@ type Union = union {
     int<64> i
 };
 
-type Exception = exception;
-
-public type X = struct {
+public type TestTypes = struct {
     addr ad;
     any an;
     bool bo;
@@ -51,7 +49,7 @@ public type X = struct {
     strong_ref<Struct> sr;
     Struct stru;
     time ti;
-    tuple<int<32>, string, bool> tu;
+    tuple<a: int<32>, string, c: bool> tu;
     Union un;
     uint<8> ui8;
     uint<16> ui16;
@@ -62,12 +60,12 @@ public type X = struct {
     value_ref<Struct> vr;
     # void vo; # can't test - cannot be used as a struct field
     weak_ref<Struct> wr;
+};
 
-    # Add a couple of optional fields.
-    string opt_s1 &optional;
-    string opt_s2 &optional;
-
-} &optional;
+public type TestOptionals = struct {
+    string opt_set &optional;
+    string opt_unset &optional;
+};
 
 global Vector = vector("11", "22", "33");
 global Map = map(1: "foo-1", 2: "foo-2");
@@ -75,15 +73,19 @@ global Set = set("aaa", "bbb", "ccc");
 global Bytes = b"bytes";
 global Stream = stream(b"stream");
 
-public function tuple<strong_ref<X>, TypeInfo> makeX() {
+public function tuple<strong_ref<TestTypes>, strong_ref<TestTypes>, TypeInfo> makeTestTypes() {
     local S = new Struct;
+    S.s = "string";
+    S.i = 42;
+
     local Union U;
     U.i = 42;
+
     local re = /abc/ &nosub;
     local MatchState MS = re.token_matcher();
     local Exception E;
 
-    local X x = [
+    local TestTypes x = [
         $ad = 1.2.3.4,
         $an = "any",
         $bo = True,
@@ -92,7 +94,7 @@ public function tuple<strong_ref<X>, TypeInfo> makeX() {
         $en = Enum::B,
         $er = error("error"),
         $ex = E,
-        $in_ = interval(5),
+        $in_ = interval(5.0),
         $li = MS,
         $ma = Map,
         $mai = begin(Map),
@@ -113,7 +115,7 @@ public function tuple<strong_ref<X>, TypeInfo> makeX() {
         $stv = Stream,
         $str = "string",
         $sr = S,
-        $stru = [$s="string", $i=42],
+        $stru = *S,
         $ti = time(1295415110.5),
         $tu = (123, "string", True),
         $un = U,
@@ -124,17 +126,18 @@ public function tuple<strong_ref<X>, TypeInfo> makeX() {
         $ve = Vector,
         $vei = begin(Vector),
         $vr = S,
-        $wr = S,
-
-        $opt_s1 = "opt_s1"
-        # Leave opt_s2 unset
+        $wr = S
     ];
 
-    return (new (x), typeinfo(X));
+    return (new (x), new TestTypes, typeinfo(TestTypes));
 }
 
-public function tuple<strong_ref<X>, TypeInfo> makeDefaultX() {
-    return (new X, typeinfo(X));
+public function tuple<strong_ref<TestOptionals>, TypeInfo> makeTestOptionals() {
+    local TestOptionals x = [
+        $opt_set = "yes"
+    ];
+
+    return (new (x), typeinfo(TestOptionals));
 }
 
 }

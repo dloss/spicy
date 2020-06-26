@@ -13,7 +13,7 @@ class TypeInfo : public NodeBase, public trait::isExpression {
 public:
     TypeInfo(Type t, Meta m = Meta()) : NodeBase({std::move(t)}, std::move(m)) {}
 
-    auto infoType() const { return child<Type>(0); }
+    auto infoType() const { return type::effectiveType(child<Type>(0)); }
 
     bool operator==(const TypeInfo& other) const { return infoType() == other.infoType(); }
 
