@@ -704,7 +704,6 @@ struct VisitorTypeInfoPredefined : hilti::visitor::PreOrder<cxx::Expression, Vis
     result_t operator()(const type::Bytes& n) { return "hilti::rt::type_info::bytes"; }
     result_t operator()(const type::bytes::Iterator& n) { return "hilti::rt::type_info::bytes_iterator"; }
     result_t operator()(const type::Error& n) { return "hilti::rt::type_info::error"; }
-    result_t operator()(const type::Exception& n) { return "hilti::rt::type_info::exception"; }
     result_t operator()(const type::Interval& n) { return "hilti::rt::type_info::interval"; }
     result_t operator()(const type::Network& n) { return "hilti::rt::type_info::network"; }
     result_t operator()(const type::Port& n) { return "hilti::rt::type_info::port"; }
@@ -752,7 +751,7 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
                    util::join(labels, ", "));
     }
 
-    result_t operator()(const type::Exception& n) { return "hilti::rt::type_info::Exception"; }
+    result_t operator()(const type::Exception& n) { return "hilti::rt::type_info::Exception()"; }
 
     result_t operator()(const type::Function& n) { return "hilti::rt::type_info::Function()"; }
 

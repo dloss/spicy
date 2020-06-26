@@ -4,6 +4,7 @@ module Test {
 type Enum = enum { A = 1, B = 2, C = 4 };
 
 type MatchState = __library_type("::hilti::rt::regexp::MatchState");
+type TypeInfo = __library_type("const ::hilti::rt::TypeInfo*");
 
 type Struct = struct {
     string s;
@@ -15,7 +16,9 @@ type Union = union {
     int<64> i
 };
 
-type X = struct {
+type Exception = exception;
+
+public type X = struct {
     addr ad;
     any an;
     bool bo;
@@ -23,12 +26,12 @@ type X = struct {
     iterator<bytes> bi;
     Enum en;
     error er;
-    exception ex; # TODO: can't use as struct field
-    # function fu;  TODO: can't test
+    exception ex;
+    # method void test(); # Can't test - won't be included into type info.
     interval in_;
     MatchState li;
-    map<int<64>, string> ma;
-    iterator<map<int<64>, string>> mai;
+    map<uint<64>, string> ma;
+    iterator<map<uint<64>, string>> mai;
     net ne;
     optional<string> op;
     port po;
@@ -57,8 +60,81 @@ type X = struct {
     vector<string> ve;
     iterator<vector<string>> vei;
     value_ref<Struct> vr;
-    # void vo; TODO: can't use as struct field
+    # void vo; # can't test - cannot be used as a struct field
     weak_ref<Struct> wr;
-};
+
+    # Add a couple of optional fields.
+    string opt_s1 &optional;
+    string opt_s2 &optional;
+
+} &optional;
+
+global Vector = vector("11", "22", "33");
+global Map = map(1: "foo-1", 2: "foo-2");
+global Set = set("aaa", "bbb", "ccc");
+global Bytes = b"bytes";
+global Stream = stream(b"stream");
+
+public function tuple<strong_ref<X>, TypeInfo> makeX() {
+    local S = new Struct;
+    local Union U;
+    U.i = 42;
+    local re = /abc/ &nosub;
+    local MatchState MS = re.token_matcher();
+    local Exception E;
+
+    local X x = [
+        $ad = 1.2.3.4,
+        $an = "any",
+        $bo = True,
+        $by = b"bytes",
+        $bi = begin(Bytes),
+        $en = Enum::B,
+        $er = error("error"),
+        $ex = E,
+        $in_ = interval(5),
+        $li = MS,
+        $ma = Map,
+        $mai = begin(Map),
+        $ne = 1.2.3.4/16,
+        $op = "optional",
+        $po = 1234/udp,
+        $re = 3.14,
+        $rx = /foo/,
+        $rs = "result",
+        $se = Set,
+        $sei = begin(Set),
+        $i8 = -8,
+        $i16 = -16,
+        $i32 = -32,
+        $i64 = -64,
+        $st = Stream,
+        $sti = begin(Stream),
+        $stv = Stream,
+        $str = "string",
+        $sr = S,
+        $stru = [$s="string", $i=42],
+        $ti = time(1295415110.5),
+        $tu = (123, "string", True),
+        $un = U,
+        $ui8 = 8,
+        $ui16 = 16,
+        $ui32 = 32,
+        $ui64 = 64,
+        $ve = Vector,
+        $vei = begin(Vector),
+        $vr = S,
+        $wr = S,
+
+        $opt_s1 = "opt_s1"
+        # Leave opt_s2 unset
+    ];
+
+    return (new (x), typeinfo(X));
+}
+
+public function tuple<strong_ref<X>, TypeInfo> makeDefaultX() {
+    return (new X, typeinfo(X));
+}
 
 }
